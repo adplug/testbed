@@ -351,8 +351,8 @@ void CInfoRecord::read_own(istream &in)
 
 void CInfoRecord::write_own(ostream &out)
 {
-  out << title;
-  out << author;
+  out << title << endl;
+  out << author << endl;
 }
 
 /***** CClockRecord *****/

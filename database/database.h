@@ -85,18 +85,28 @@ public:
 	void	goto_end();
 
 private:
-	typedef struct DB_Bucket {
-		unsigned long	index;
-		bool		deleted;
-	        DB_Bucket	*chain;
+	class DB_Bucket
+	{
+	public:
+	  unsigned long	index;
+	  bool		deleted;
+	  DB_Bucket	*chain;
 
-		CRecord		*record;
+	  CRecord	*record;
+
+	  DB_Bucket(CRecord *newrecord, DB_Bucket *newchain = 0);
+	  ~DB_Bucket();
+
+	  static unsigned long linear_length();
+
+	private:
+	  static unsigned long mainindex;
 	};
 
 	DB_Bucket	*db_linear[HASH_RADIX];
 	DB_Bucket	*db_hashed[HASH_RADIX];
 
-	unsigned long	linear_index, linear_length, linear_logic_length;
+	unsigned long	linear_index, linear_logic_length;
 
 	unsigned long make_hash(CRecord::Key key);
 };

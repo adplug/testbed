@@ -85,9 +85,8 @@ int main(int argc, char* argv[])
 	  printf("author: "); gets(record->author);
 	  printf("user data: "); gets((char *)record->data); */
 
-	  mydb.insert(record);
+	  if(!mydb.insert(record)) delete record;
 	  mydb.save("adplug.db");
-	  delete record;
 	}
 	/*	else if (!strcmp(argv[1],"list"))
 	{

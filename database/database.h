@@ -24,116 +24,131 @@
 #ifndef H_DATABASE
 #define H_DATABASE
 
+#include <iostream.h>
 #include <string>
 
 #include "filetype.h"
 
-#define HASH_RADIX	0xfff1		// should be prime
-
 class CAdPlugDatabase
 {
 public:
-	class CRecord
-	{
-	public:
-	  typedef unsigned char	Key[6];
-	  typedef enum { Plain, SongInfo, ClockSpeed } RecordType;
+  class CKey
+    {
+    public:
+      unsigned short crc16;
+      unsigned long crc32;
 
-	  RecordType		type;
-	  unsigned long		size;
-	  Key			key;
-	  CFileType::FileType	filetype;
+      CKey() {};
+      CKey(istream &in);
 
-	  static CRecord *factory(RecordType type);
-	  static CRecord *read(istream &in);
+      bool operator==(const CKey &key);
 
-	  CRecord();
-	  virtual ~CRecord();
+    private:
+      void make(istream &in);
+    };
 
-	  void write(ostream &out);
+  class CRecord
+    {
+    public:
+      typedef enum { Plain, SongInfo, ClockSpeed } RecordType;
 
-	protected:
-	  virtual void read_own(istream &in) {}
-	  virtual void write_own(ostream &out) {}
-	};
+      RecordType		type;
+      CKey			key;
+      CFileType::FileType	filetype;
 
-	static void make_key(unsigned char *buffer, long buffer_size,
-			     CRecord::Key key);
+      static CRecord *factory(RecordType type);
+      static CRecord *read(istream &in);
 
-	CAdPlugDatabase();
-	~CAdPlugDatabase();
+      CRecord();
+      virtual ~CRecord();
 
-	bool	load(const char *db_name);
-	bool	load(istream &f);
-	bool	save(const char *db_name);
-	bool	save(ostream &f);
+      void write(ostream &out);
 
-	bool    insert(CRecord *record);
+    protected:
+      virtual void read_own(istream &in) {}
+      virtual void write_own(ostream &out) {}
+      virtual unsigned long get_size();
+    };
 
-	void	wipe(CRecord *record);
-	void	wipe();
+  CAdPlugDatabase();
 
-	CRecord *search(CRecord::Key key);
-	bool	lookup(CRecord::Key key);
+  ~CAdPlugDatabase();
 
-	CRecord	*get_record();
+  bool	load(const char *db_name);
+  bool	load(istream &f);
+  bool	save(const char *db_name);
+  bool	save(ostream &f);
 
-	bool	go_forward();
-	bool	go_backward();
+  bool    insert(CRecord *record);
 
-	void	goto_begin();
-	void	goto_end();
+  void	wipe(CRecord *record);
+  void	wipe();
 
-private:
-	class DB_Bucket
-	{
-	public:
-	  unsigned long	index;
-	  bool		deleted;
-	  DB_Bucket	*chain;
+  CRecord *search(CKey const &key);
+  bool	lookup(CKey const &key);
 
-	  CRecord	*record;
+  CRecord	*get_record();
 
-	  DB_Bucket(CRecord *newrecord, DB_Bucket *newchain = 0);
-	  ~DB_Bucket();
+  bool	go_forward();
+  bool	go_backward();
 
-	  static unsigned long linear_length();
+  void	goto_begin();
+  void	goto_end();
 
-	private:
-	  static unsigned long mainindex;
-	};
+ private:
+  static const unsigned short hash_radix = 0xfff1;	// should be prime
 
-	DB_Bucket	*db_linear[HASH_RADIX];
-	DB_Bucket	*db_hashed[HASH_RADIX];
+  class DB_Bucket
+    {
+    public:
+      unsigned long	index;
+      bool		deleted;
+      DB_Bucket	*chain;
 
-	unsigned long	linear_index, linear_logic_length;
+      CRecord	*record;
 
-	unsigned long make_hash(CRecord::Key key);
+      DB_Bucket(CRecord *newrecord, DB_Bucket *newchain = 0);
+      ~DB_Bucket();
+
+      static unsigned long linear_length();
+
+    private:
+      static unsigned long mainindex;
+    };
+
+  DB_Bucket	*db_linear[hash_radix];
+  DB_Bucket	*db_hashed[hash_radix];
+
+  unsigned long	linear_index, linear_logic_length;
+
+  unsigned long make_hash(CKey const &key);
 };
 
 class CInfoRecord: public CAdPlugDatabase::CRecord
 {
-public:
+ public:
   std::string	title;
   std::string	author;
 
   CInfoRecord();
 
-protected:
+ protected:
   virtual void read_own(istream &in);
   virtual void write_own(ostream &out);
+  virtual unsigned long get_size();
 };
 
 class CClockRecord: public CAdPlugDatabase::CRecord
 {
-public:
+ public:
   float	clock;
 
   CClockRecord();
 
-protected:
+ protected:
   virtual void read_own(istream &in);
   virtual void write_own(ostream &out);
+  virtual unsigned long get_size();
 };
 
 #endif

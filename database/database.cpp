@@ -21,6 +21,7 @@
  * Copyright (c) 2002 Simon Peter <dn.tlp@gmx.net>
  */
 
+#include <iostream.h>
 #include <fstream.h>
 #include <string.h>
 
@@ -33,8 +34,8 @@
 CAdPlugDatabase::CAdPlugDatabase()
   : linear_index(0), linear_logic_length(0)
 {
-	memset(db_linear,0,sizeof(DB_Bucket *) * HASH_RADIX);
-	memset(db_hashed,0,sizeof(DB_Bucket *) * HASH_RADIX);
+	memset(db_linear,0,sizeof(DB_Bucket *) * hash_radix);
+	memset(db_hashed,0,sizeof(DB_Bucket *) * hash_radix);
 }
 
 CAdPlugDatabase::~CAdPlugDatabase()
@@ -88,42 +89,42 @@ bool CAdPlugDatabase::save(ostream &f)
   return true;
 }
 
-CAdPlugDatabase::CRecord *CAdPlugDatabase::search(CRecord::Key key)
+CAdPlugDatabase::CRecord *CAdPlugDatabase::search(CKey const &key)
 {
   lookup(key);
   return get_record();
 }
 
-bool CAdPlugDatabase::lookup(CRecord::Key key)
+bool CAdPlugDatabase::lookup(CKey const &key)
 {
-	long index = make_hash(key);
+  long index = make_hash(key);
 
-	if(!db_hashed[index]) return false;
+  if(!db_hashed[index]) return false;
 
-	// immediate hit ?
-	DB_Bucket *bucket = db_hashed[index];
+  // immediate hit ?
+  DB_Bucket *bucket = db_hashed[index];
 
-	if (!memcmp(bucket->record->key,key,6))
+  if(bucket->record->key == key)
+    {
+      linear_index = bucket->index;
+      return true;
+    }
+
+  // in-chain hit ?
+  bucket = db_hashed[index]->chain;
+
+  while (bucket)
+    {
+      if(bucket->record->key == key)
 	{
-		linear_index = bucket->index;
-		return true;
+	  linear_index = bucket->index;
+	  return true;
 	}
 
-	// in-chain hit ?
-	bucket = db_hashed[index]->chain;
+      bucket = bucket->chain;
+    }
 
-	while (bucket)
-	{
-		if (!memcmp(bucket->record->key,key,6))
-		{
-			linear_index = bucket->index;
-			return true;
-		}
-
-		bucket = bucket->chain;
-	}
-
-	return false;
+  return false;
 }
 
 bool CAdPlugDatabase::insert(CRecord *record)
@@ -131,7 +132,7 @@ bool CAdPlugDatabase::insert(CRecord *record)
   unsigned long linear_length = DB_Bucket::linear_length();
 
   if(!record) return false;			// null-pointer given
-  if(DB_Bucket::linear_length() == HASH_RADIX) return false;	// max. db size exceeded
+  if(DB_Bucket::linear_length() == hash_radix) return false;	// max. db size exceeded
   if(lookup(record->key)) return false;		// record already in db
 
   // make bucket
@@ -217,48 +218,9 @@ void CAdPlugDatabase::goto_end()
 		linear_index = DB_Bucket::linear_length() - 1;
 }
 
-void CAdPlugDatabase::make_key(unsigned char *buffer, long buffer_size, CRecord::Key key)
-/*
- * Key is CRC16:CRC32 pair. CRC16 and CRC32 calculation routines (c) Zhengxi
- *
- */
+unsigned long CAdPlugDatabase::make_hash(CKey const &key)
 {
-	static const unsigned short magic16 = 0xa001;
-	static const unsigned long  magic32 = 0xedb88320;
-
-	unsigned short crc16 =  0;
-	unsigned long  crc32 = ~0;
-
-	for (long i=0;i<buffer_size;i++)
-	{
-		unsigned char byte = buffer[i];
-
-		for (int j=0;j<8;j++)
-		{
-			if ((crc16 ^ byte) & 1)
-				crc16 = (crc16 >> 1) ^ magic16;
-			else
-				crc16 >>= 1;
-
-			if ((crc32 ^ byte) & 1)
-				crc32 = (crc32 >> 1) ^ magic32;
-			else
-				crc32 >>= 1;
-
-			byte >>= 1;
-		}
-	}
-
-	crc16 &= 0xffff;
-	crc32  = ~crc32;
-
-	*(unsigned short *)&key[4] = crc16;
-	*(unsigned long  *)&key[0] = crc32;
-}
-
-unsigned long CAdPlugDatabase::make_hash(CRecord::Key key)
-{
-	return (((*(unsigned long *)&key[0]) + (*(unsigned short *)&key[4])) % HASH_RADIX);
+	return (key.crc32 + key.crc16) % hash_radix;
 }
 
 /***** CAdPlugDatabase::DB_Bucket *****/
@@ -294,9 +256,8 @@ CAdPlugDatabase::CRecord *CAdPlugDatabase::CRecord::factory(RecordType type)
 }
 
 CAdPlugDatabase::CRecord::CRecord()
-  : type(Plain), size(sizeof(CRecord)), filetype(CFileType::Undefined)
+  : type(Plain), filetype(CFileType::Undefined)
 {
-  memset(key, 0, sizeof(key));
 }
 
 CAdPlugDatabase::CRecord::~CRecord()
@@ -314,26 +275,78 @@ CAdPlugDatabase::CRecord *CAdPlugDatabase::CRecord::read(istream &in)
   rec = factory(type);
 
   if(rec) {
-    rec->size = size;
-    in.read((char *)&rec->key, sizeof(rec->key));
+    in.read((char *)&rec->key.crc16, sizeof(rec->key.crc16));
+    in.read((char *)&rec->key.crc32, sizeof(rec->key.crc32));
     in.read((char *)&rec->filetype, sizeof(rec->filetype));
     rec->read_own(in);
     return rec;
   } else {
     // skip this record, cause we don't know about it
-    in.seekg(size, ios::cur);
+    in.seekg(size + 6 + sizeof(rec->filetype), ios::cur);
     return 0;
   }
 }
 
 void CAdPlugDatabase::CRecord::write(ostream &out)
 {
+  unsigned long size = get_size();
+
   out.write((char *)&type, sizeof(type));
   out.write((char *)&size, sizeof(size));
-  out.write(key, sizeof(key));
+  out.write((char *)key.crc16, sizeof(key.crc16));
+  out.write((char *)key.crc32, sizeof(key.crc32));
   out.write((char *)&filetype, sizeof(filetype));
 
   write_own(out);
+}
+
+unsigned long CAdPlugDatabase::CRecord::get_size()
+{
+  return 0;
+}
+
+/***** CAdPlugDatabase::CRecord::CKey *****/
+
+CAdPlugDatabase::CKey::CKey(istream &buf)
+{
+  make(buf);
+}
+
+bool CAdPlugDatabase::CKey::operator==(const CKey &key)
+{
+  return ((crc16 == key.crc16) && (crc32 == key.crc32));
+}
+
+void CAdPlugDatabase::CKey::make(istream &buf)
+// Key is CRC16:CRC32 pair. CRC16 and CRC32 calculation routines (c) Zhengxi
+{
+  static const unsigned short magic16 = 0xa001;
+  static const unsigned long  magic32 = 0xedb88320;
+
+  crc16 = 0; crc32 = ~0;
+
+  while(!buf.eof())
+    {
+      unsigned char byte = buf.get();
+
+      for (int j=0;j<8;j++)
+	{
+	  if ((crc16 ^ byte) & 1)
+	    crc16 = (crc16 >> 1) ^ magic16;
+	  else
+	    crc16 >>= 1;
+
+	  if ((crc32 ^ byte) & 1)
+	    crc32 = (crc32 >> 1) ^ magic32;
+	  else
+	    crc32 >>= 1;
+
+	  byte >>= 1;
+	}
+    }
+
+  crc16 &= 0xffff;
+  crc32  = ~crc32;
 }
 
 /***** CInfoRecord *****/
@@ -355,6 +368,11 @@ void CInfoRecord::write_own(ostream &out)
   out << author << endl;
 }
 
+unsigned long CInfoRecord::get_size()
+{
+  return title.length() + author.length() + 2;
+}
+
 /***** CClockRecord *****/
 
 CClockRecord::CClockRecord()
@@ -371,4 +389,9 @@ void CClockRecord::read_own(istream &in)
 void CClockRecord::write_own(ostream &out)
 {
   out.write((char *)&clock, sizeof(clock));
+}
+
+unsigned long CClockRecord::get_size()
+{
+  return sizeof(clock);
 }

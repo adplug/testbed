@@ -30,28 +30,9 @@
 
 CAdPlugDatabase	mydb;
 
-bool make_key_from_file(const char *filename, CAdPlugDatabase::CRecord::Key key)
-/* This should be placed into CAdPlugDatabase directly... */
-{
-  ifstream f(filename, ios::in | ios::binary);
-  if (!f.is_open()) return false;
-
-  // Generate key from file
-  f.seekg(0,ios::end);
-  long file_size = f.tellg();
-  f.seekg(0);
-  unsigned char *file = new unsigned char [file_size];
-  f.read(file,file_size);
-  CAdPlugDatabase::make_key(file,file_size,key);
-  delete file;
-
-  return true;
-}
-
 void show_record(CAdPlugDatabase::CRecord *record)
 {
   printf("type: %i\n", record->type);
-  printf("size: %lu\n", record->size);
   printf("key: ...\n");
   printf("FileType: %u\n", record->filetype);
 
@@ -89,12 +70,17 @@ int main(int argc, char* argv[])
 		return 1;
 	}
 
-	CAdPlugDatabase::CRecord::Key key;
+	CAdPlugDatabase::CKey key;
 
 	// Operate on a file
-	if (argc > 2)
-	  if(!make_key_from_file(argv[2], key))
-	    printf("error: can't open specified file\n");
+	if (argc > 2) {
+	  ifstream f(argv[2], ios::in | ios::binary);
+	  if(!f.is_open()) {
+	    puts("error: can't open specified file");
+	    exit(1);
+	  }
+	  key = CAdPlugDatabase::CKey(f);
+	}
 
 	mydb.load("adplug.db");
 

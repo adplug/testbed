@@ -1,5 +1,24 @@
 /*
- * CAdPlugDatabase class tester
+ * AdPlug - Replayer for many OPL2/OPL3 audio file formats.
+ * Copyright (c) 1999 - 2002 Simon Peter <dn.tlp@gmx.net>, et al.
+ * 
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2.1 of the License, or (at your option) any later version.
+ * 
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ * 
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *
+ * maintdb.cpp - AdPlug database maintenance utility
+ * Copyright (c) 2002 Riven the Mage <riven@ok.ru>
+ * Copyright (c) 2002 Simon Peter <dn.tlp@gmx.net>
  */
 
 #include <fstream.h>
@@ -11,9 +30,7 @@
 
 int main(int argc, char* argv[])
 {
-	char temp[256];
-
-	printf("AdPlug Database Console, (c) Riven the Mage <riven@ok.ru>\n\n");
+	printf("AdPlug database maintenance utility, (c) Riven the Mage <riven@ok.ru>\n\n");
 
 	if (argc == 1)
 	{
@@ -25,47 +42,53 @@ int main(int argc, char* argv[])
 		return 1;
 	}
 
-	CAdPlugDatabase mydb;
+	CAdPlugDatabase			mydb;
+	CAdPlugDatabase::CRecord::Key	key;
 
-	CAdPlugDatabase::db_record record;
-
-	memset(&record,0,sizeof(CAdPlugDatabase::db_record));
-
+	// Operate on a file
 	if (argc > 2)
 	{
 		ifstream f(argv[2], ios::in | ios::binary);
+
 		if (!f.is_open())
 		{
 			printf("error: can't open specified file\n");
 			return 1;
 		}
+
+		// Generate key from file
 		f.seekg(0,ios::end);
 		long file_size = f.tellg();
 		f.seekg(0);
 		unsigned char *file = new unsigned char [file_size];
 		f.read(file,file_size);
 		f.close();
-
-		CAdPlugDatabase::make_key(file,file_size,record.key);
-		printf("key: 0x%04X:0x%08X\n\n",*(unsigned short *)&record.key[4],*(unsigned long  *)&record.key[0]);
-
+		CAdPlugDatabase::make_key(file,file_size,key);
 		delete file;
+
+		printf("key: 0x%04X:0x%08lX\n\n",*(unsigned short *)&key[4],*(unsigned long *)&key[0]);
 	}
 
 	mydb.load("adplug.db");
 
 	if (!strcmp(argv[1],"add"))
 	{
-		printf("type: "); scanf("%i",&record.type); gets(temp);
-		printf("title: "); gets(record.title);
-		printf("author: "); gets(record.author);
-		printf("user data: "); gets((char *)record.data);
+	  CAdPlugDatabase::CRecord::RecordType	type;
+	  CAdPlugDatabase::CRecord		*record;
 
-		mydb.insert(&record);
+	  printf("type: "); scanf("%u\n",(unsigned int *)&type);
 
-		mydb.save("adplug.db");
+	  record = CAdPlugDatabase::CRecord::factory(type);
+	  record->key = key;
+
+	  /*	  printf("title: "); gets(record->title);
+	  printf("author: "); gets(record->author);
+	  printf("user data: "); gets((char *)record->data); */
+
+	  mydb.insert(record);
+	  mydb.save("adplug.db");
 	}
-	else if (!strcmp(argv[1],"list"))
+	/*	else if (!strcmp(argv[1],"list"))
 	{
 		mydb.goto_begin();
 
@@ -94,7 +117,7 @@ int main(int argc, char* argv[])
 		}
 		else
 			printf("no info in database about this file.\n");
-	}
+			} */
 	else
 		printf("error: unknown command.\n");
 }

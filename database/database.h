@@ -16,44 +16,66 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
- * database.h - AdPlug database class by Riven the Mage <riven@ok.ru>
- *
+ * database.h - AdPlug database class
+ * Copyright (c) 2002 Riven the Mage <riven@ok.ru>
+ * Copyright (c) 2002 Simon Peter <dn.tlp@gmx.net>
  */
 
 #ifndef H_DATABASE
 #define H_DATABASE
+
+#include <string>
+
+#include "filetype.h"
 
 #define HASH_RADIX	0xfff1		// should be prime
 
 class CAdPlugDatabase
 {
 public:
-	CAdPlugDatabase();
-
-	virtual ~CAdPlugDatabase();
-
-#pragma pack(1)
-	typedef struct
+	class CRecord
 	{
-		unsigned char	key[6];
-		unsigned int	type;
-		char            title[64];
-		char            author[64];
-		unsigned char	data[32];
-	} db_record;
-#pragma pack()
+	public:
+	  typedef unsigned char	Key[6];
+	  typedef enum { Plain, SongInfo, ClockSpeed } RecordType;
 
-	bool	load(const char *);
-	bool	save(const char *);
+	  RecordType		type;
+	  unsigned long		size;
+	  Key			key;
+	  CFileType::FileType	filetype;
 
-	bool    insert(db_record *);
+	  static CRecord *factory(RecordType type);
+	  static CRecord *read(istream &in);
 
-	void	wipe();
-	void	unwipe();
+	  CRecord();
+	  virtual ~CRecord();
 
-	bool	search(unsigned char *);
+	  void write(ostream &out);
 
-	bool	get_record(db_record *);
+	protected:
+	  virtual void read_own(istream &in) {}
+	  virtual void write_own(ostream &out) {}
+	};
+
+	static void make_key(unsigned char *buffer, long buffer_size,
+			     CRecord::Key key);
+
+	CAdPlugDatabase();
+	~CAdPlugDatabase();
+
+	bool	load(const char *db_name);
+	bool	load(istream &f);
+	bool	save(const char *db_name);
+	bool	save(ostream &f);
+
+	bool    insert(CRecord *record);
+
+	void	wipe(CRecord *record);
+
+	CRecord *search(CRecord::Key key);
+	bool	lookup(CRecord::Key key);
+
+	CRecord	*get_record();
 
 	bool	go_forward();
 	bool	go_backward();
@@ -61,26 +83,46 @@ public:
 	void	goto_begin();
 	void	goto_end();
 
-	static	void	make_key(unsigned char *, long, unsigned char *);
-
 private:
-	typedef struct
-	{
+	typedef struct DB_Bucket {
 		unsigned long	index;
-		bool            deleted;
-		void            *chain;
+		bool		deleted;
+	        DB_Bucket	*chain;
 
-		db_record       record;
-	} db_bucket;
+		CRecord		*record;
+	};
 
-	db_bucket	*db_linear[HASH_RADIX];
-	db_bucket	*db_hashed[HASH_RADIX];
+	DB_Bucket	*db_linear[HASH_RADIX];
+	DB_Bucket	*db_hashed[HASH_RADIX];
 
-	long		linear_index;
-	long		linear_length;
-	long		linear_logic_length;
+	unsigned long	linear_index, linear_length, linear_logic_length;
 
-	long		make_hash(unsigned char *);
+	unsigned long make_hash(CRecord::Key key);
+};
+
+class CInfoRecord: public CAdPlugDatabase::CRecord
+{
+public:
+  std::string	title;
+  std::string	author;
+
+  CInfoRecord();
+
+protected:
+  virtual void read_own(istream &in);
+  virtual void write_own(ostream &out);
+};
+
+class CClockRecord: public CAdPlugDatabase::CRecord
+{
+public:
+  float	clock;
+
+  CClockRecord();
+
+protected:
+  virtual void read_own(istream &in);
+  virtual void write_own(ostream &out);
 };
 
 #endif

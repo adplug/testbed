@@ -293,8 +293,8 @@ void CAdPlugDatabase::CRecord::write(ostream &out)
 
   out.write((char *)&type, sizeof(type));
   out.write((char *)&size, sizeof(size));
-  out.write((char *)key.crc16, sizeof(key.crc16));
-  out.write((char *)key.crc32, sizeof(key.crc32));
+  out.write((char *)&key.crc16, sizeof(key.crc16));
+  out.write((char *)&key.crc32, sizeof(key.crc32));
   out.write((char *)&filetype, sizeof(filetype));
 
   write_own(out);

@@ -29,7 +29,7 @@ class binio
 {
 public:
   typedef enum {
-    BigEndian = 1 << 0,
+    BigEndian	= 1 << 0,
   } Flag;
 
   typedef enum { Start, Add, End } Offset;
@@ -47,19 +47,16 @@ public:
   void set_flag(Flag f, bool set = true);
   bool get_flag(Flag f);
 
+  virtual bool eof() = 0;
   virtual void seek(unsigned long, Offset = Start) = 0;
 
 protected:
-  typedef enum { Norm, Swap } Order;
-
-  Order order;
-
-private:
   typedef unsigned short Flags;
 
-  static Flags	system_flags;
-  Flags		my_flags;
+  Flags my_flags;
 
+private:
+  static Flags system_flags;
   static Flags detect_system_flags();
 };
 

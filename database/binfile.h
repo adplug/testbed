@@ -39,6 +39,7 @@ public:
 
   bool is_open();
 
+  virtual bool eof();
   virtual void seek(unsigned long pos, Offset offs);
 
 protected:

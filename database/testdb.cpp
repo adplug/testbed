@@ -21,19 +21,17 @@
  * Copyright (c) 2002 Simon Peter <dn.tlp@gmx.net>
  */
 
-#include <fstream.h>
 #include <memory.h>
 #include <stdio.h>
 #include <string.h>
 
+#include "binfile.h"
 #include "database.h"
 
-CAdPlugDatabase	mydb;
-
-void show_record(CAdPlugDatabase::CRecord *record)
+static void show_record(CAdPlugDatabase::CRecord *record)
 {
   printf("type: %i\n", record->type);
-  printf("key: 0x%lX:0x%X\n", record->key.crc32, record->key.crc16);
+  printf("key: 0x%X:0x%lX\n", record->key.crc16, record->key.crc32);
   printf("FileType: %u\n", record->filetype);
 
   CInfoRecord *inforec = (CInfoRecord *)record;
@@ -42,7 +40,7 @@ void show_record(CAdPlugDatabase::CRecord *record)
   switch(record->type) {
   case CAdPlugDatabase::CRecord::Plain: break;
   case CAdPlugDatabase::CRecord::SongInfo:
-    cout << "title: " << inforec->title << endl;
+    cout << "Title: " << inforec->title << endl;
     cout << "Author: " << inforec->author << endl;
     break;
   case CAdPlugDatabase::CRecord::ClockSpeed:
@@ -54,89 +52,90 @@ void show_record(CAdPlugDatabase::CRecord *record)
   }
 }
 
+static CAdPlugDatabase::CKey make_key_from_file(const char *filename)
+{
+  binifstream f(filename);
+
+  if(!f.is_open()) {
+    puts("error: can't open specified file");
+    exit(EXIT_FAILURE);
+  }
+
+  CAdPlugDatabase::CKey key(f);
+  printf("File \"%s\" key: 0x%X:0x%lX\n", filename, key.crc16, key.crc32);
+  return key;
+}
+
 int main(int argc, char* argv[])
 {
-	puts("AdPlug database maintenance utility");
-	puts("Copyright (c) 2002 Riven the Mage <riven@ok.ru>");
-	puts("Copyright (c) 2002 Simon Peter <dn.tlp@gmx.net>\n");
+  CAdPlugDatabase	mydb;
 
-	if (argc == 1)
-	{
-		printf("usage: %s <command> [file]\n", argv[0]);
-		printf("\ncommands:\n");
-		printf("    add         add file info to database\n");
-		printf("    list        view database\n");
-		printf("    resolve     try to resolve file info from database\n\n");
-		return 1;
-	}
+  puts("AdPlug database maintenance utility");
+  puts("Copyright (c) 2002 Riven the Mage <riven@ok.ru>");
+  puts("Copyright (c) 2002 Simon Peter <dn.tlp@gmx.net>\n");
 
-	CAdPlugDatabase::CKey key;
+  if (argc == 1) {
+    printf("usage: %s <command> [file]\n", argv[0]);
+    printf("\ncommands:\n");
+    printf("    add         add file info to database\n");
+    printf("    list        view database\n");
+    printf("    resolve     try to resolve file info from database\n\n");
+    return 1;
+  }
 
-	// Operate on a file
-	if (argc > 2) {
-	  ifstream f(argv[2], ios::in | ios::binary);
-	  if(!f.is_open()) {
-	    puts("error: can't open specified file");
-	    exit(1);
-	  }
-	  key = CAdPlugDatabase::CKey(f);
-	  printf("file %s key: 0x%lX:0x%X\n", argv[2], key.crc32, key.crc16);
-	}
+  mydb.load("adplug.db");
 
-	mydb.load("adplug.db");
+  if(argc > 2 && !strcmp(argv[1],"add")) {
+    CAdPlugDatabase::CKey key = make_key_from_file(argv[2]);
+    CAdPlugDatabase::CRecord::RecordType type;
+    CAdPlugDatabase::CRecord *record;
+    CInfoRecord *inforec;
+    CClockRecord *clockrec;
+    char tmpstr[256];
 
-	if (!strcmp(argv[1],"add"))
-	{
-	  CAdPlugDatabase::CRecord::RecordType	type;
-	  CAdPlugDatabase::CRecord		*record;
-	  CInfoRecord *inforec;
-	  CClockRecord *clockrec;
+    if(mydb.lookup(key)) {
+      puts("Error: File already in database!");
+      exit(EXIT_FAILURE);
+    }
 
-	  printf("type: "); scanf("%u",(unsigned int *)&type);
+    cout << "type: "; cin >> (unsigned int)type; cin.ignore();
+    record = CAdPlugDatabase::CRecord::factory(type);
+    record->key = key;
 
-	  record = CAdPlugDatabase::CRecord::factory(type);
-	  record->key = key;
+    switch(type) {
+    case CAdPlugDatabase::CRecord::Plain: break;
+    case CAdPlugDatabase::CRecord::SongInfo:
+      inforec = (CInfoRecord *)record;
+      cout << "Title: "; cin.getline(tmpstr, 256); inforec->title = tmpstr;
+      cout << "Author: "; cin.getline(tmpstr, 256); inforec->author = tmpstr;
+      break;
+    case CAdPlugDatabase::CRecord::ClockSpeed:
+      clockrec = (CClockRecord *)record;
+      cout << "Clockspeed: "; cin >> clockrec->clock;
+      break;
+    default:
+      puts("Error: Unknown database record!");
+      break;
+    }
 
-	  switch(type) {
-	  case CAdPlugDatabase::CRecord::Plain: break;
-	  case CAdPlugDatabase::CRecord::SongInfo:
-	    inforec = (CInfoRecord *)record;
-	    cout << "Title: "; cin >> inforec->title;
-	    cout << "Author: "; cin >> inforec->author;
-	    cout << inforec->author << endl;
-	    break;
-	  case CAdPlugDatabase::CRecord::ClockSpeed:
-	    clockrec = (CClockRecord *)record;
-	    cout << "Clockspeed: "; scanf("%f", &clockrec->clock);
-	    break;
-	  default:
-	    puts("Error: Unknown database record!");
-	    break;
-	  }
+    if(!mydb.insert(record)) delete record;
+    mydb.save("adplug.db");
+  } else
+    if(!strcmp(argv[1],"list")) {
+      mydb.goto_begin();
 
-	  if(!mydb.insert(record)) delete record;
-	  mydb.save("adplug.db");
-	}
-	else if (!strcmp(argv[1],"list"))
-	{
-		mydb.goto_begin();
-
-		do
-		{
-			CAdPlugDatabase::CRecord *record = mydb.get_record();
-			show_record(record);
-			printf("\n");
-		}
-		while (mydb.go_forward());
-	}
-	else if (!strcmp(argv[1],"resolve"))
-	{
-	  CAdPlugDatabase::CRecord *record = mydb.search(key);
-	  if (record)
-	    show_record(record);
-	  else
-	    printf("no info in database about this file.\n");
-	}
+      do {
+	CAdPlugDatabase::CRecord *record = mydb.get_record();
+	show_record(record);
+	printf("\n");
+      } while(mydb.go_forward());
+    } else
+      if(argc > 2 && !strcmp(argv[1],"resolve")) {
+	CAdPlugDatabase::CRecord *record = mydb.search(make_key_from_file(argv[2]));
+	if(record)
+	  show_record(record);
 	else
-	  printf("error: unknown command.\n");
+	  puts("Error: No info in database about this file.");
+      } else
+	puts("Error: Unknown command or missing argument(s).");
 }

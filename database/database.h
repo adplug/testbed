@@ -39,12 +39,12 @@ public:
     unsigned long crc32;
 
     CKey() {};
-    CKey(istream &in);
+    CKey(binistream &in);
 
     bool operator==(const CKey &key);
 
   private:
-    void make(istream &in);
+    void make(binistream &in);
   };
 
   class CRecord
@@ -57,7 +57,7 @@ public:
     CFileType::FileType	filetype;
 
     static CRecord *factory(RecordType type);
-    static CRecord *read(binistream &in);
+    static CRecord *factory(binistream &in);
 
     CRecord();
     virtual ~CRecord();
@@ -79,13 +79,13 @@ public:
   bool	save(const char *db_name);
   bool	save(binostream &f);
 
-  bool    insert(CRecord *record);
+  bool	insert(CRecord *record);
 
   void	wipe(CRecord *record);
   void	wipe();
 
-  CRecord *search(CKey const &key);
-  bool	lookup(CKey const &key);
+  CRecord	*search(CKey const &key);
+  bool		lookup(CKey const &key);
 
   CRecord *get_record();
 

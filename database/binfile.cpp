@@ -50,6 +50,11 @@ void binfbase::seek(unsigned long pos, Offset offs)
   }
 }
 
+bool binfbase::eof()
+{
+  return feof(f);
+}
+
 bool binfbase::is_open()
 {
   return (f ? true : false);

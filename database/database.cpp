@@ -67,7 +67,7 @@ bool CAdPlugDatabase::load(binistream &f)
 
   // read records
   for (unsigned long i=0;i<length;i++)
-    insert(CRecord::read(f));
+    insert(CRecord::factory(f));
 
   delete [] id;
   return true;
@@ -268,7 +268,7 @@ CAdPlugDatabase::CRecord::~CRecord()
 {
 }
 
-CAdPlugDatabase::CRecord *CAdPlugDatabase::CRecord::read(binistream &in)
+CAdPlugDatabase::CRecord *CAdPlugDatabase::CRecord::factory(binistream &in)
 {
   RecordType	type;
   unsigned long	size;
@@ -305,7 +305,7 @@ unsigned long CAdPlugDatabase::CRecord::get_size()
 
 /***** CAdPlugDatabase::CRecord::CKey *****/
 
-CAdPlugDatabase::CKey::CKey(istream &buf)
+CAdPlugDatabase::CKey::CKey(binistream &buf)
 {
   make(buf);
 }
@@ -315,7 +315,7 @@ bool CAdPlugDatabase::CKey::operator==(const CKey &key)
   return ((crc16 == key.crc16) && (crc32 == key.crc32));
 }
 
-void CAdPlugDatabase::CKey::make(istream &buf)
+void CAdPlugDatabase::CKey::make(binistream &buf)
 // Key is CRC16:CRC32 pair. CRC16 and CRC32 calculation routines (c) Zhengxi
 {
   static const unsigned short magic16 = 0xa001;
@@ -325,7 +325,7 @@ void CAdPlugDatabase::CKey::make(istream &buf)
 
   while(!buf.eof())
     {
-      unsigned char byte = buf.get();
+      unsigned char byte = buf.readByte();
 
       for (int j=0;j<8;j++)
 	{

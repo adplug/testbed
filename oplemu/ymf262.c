@@ -34,7 +34,7 @@
  * are: gcc, MSVC
  */
 #ifdef __GCC__
-#	define INLINE	__inline
+#	define INLINE	inline
 #elif defined(_MSC_VER)
 #	define INLINE	__inline
 #else
@@ -70,7 +70,7 @@ static INLINE int32 phasor_get(YMF262 *opl)
   return opl->phasor_phi += opl->phasor_omega;
 }
 
-static int16 waveform_get(YMF262 *opl, uint8 op, int32 phi)
+static INLINE int16 waveform_get(YMF262 *opl, uint8 op, int32 phi)
 /*
  * OPL2 waveform generator. Four waveforms are selectable:
  *     __        __        __  __    _   _
@@ -88,7 +88,7 @@ static int16 waveform_get(YMF262 *opl, uint8 op, int32 phi)
 			       ((opl->op[op].waveform & 2) ? y : -y)) : y;
 }
 
-static uint32 env_get(YMF262 *opl, uint8 op)
+static INLINE uint32 env_get(YMF262 *opl, uint8 op)
 /*
  * Returns current ADSR envelope level for operator 'op' and calculates
  * the next one.
@@ -102,7 +102,7 @@ static uint32 env_get(YMF262 *opl, uint8 op)
   return out;
 }
 
-static uint8 env_finished(YMF262 *opl, uint8 op)
+static INLINE uint8 env_finished(YMF262 *opl, uint8 op)
 /* Returns whether the current ADSR run for operator 'op' has finished. */
 {
   /* OPL has only 24(?) bits so "quite zero" is OK. */

@@ -1,6 +1,4 @@
 LDFLAGS = -lm
 CXXFLAGS = -Wall
 
-Test: Test.o
-
-Test.o: Test.cpp OPL.hpp
+ymf262.o: ymf262.c ymf262.h

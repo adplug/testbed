@@ -76,7 +76,7 @@ int main(int argc, char* argv[])
 	  CAdPlugDatabase::CRecord::RecordType	type;
 	  CAdPlugDatabase::CRecord		*record;
 
-	  printf("type: "); scanf("%u\n",(unsigned int *)&type);
+	  printf("type: "); scanf("%u",(unsigned int *)&type);
 
 	  record = CAdPlugDatabase::CRecord::factory(type);
 	  record->key = key;
@@ -87,6 +87,7 @@ int main(int argc, char* argv[])
 
 	  mydb.insert(record);
 	  mydb.save("adplug.db");
+	  delete record;
 	}
 	/*	else if (!strcmp(argv[1],"list"))
 	{

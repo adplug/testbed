@@ -21,6 +21,8 @@
  * Copyright (c) 2002 Simon Peter <dn.tlp@gmx.net>
  */
 
+#include <stdio.h>
+
 #include <fstream.h>
 #include <string.h>
 
@@ -39,8 +41,15 @@ CAdPlugDatabase::CAdPlugDatabase()
 
 CAdPlugDatabase::~CAdPlugDatabase()
 {
-	for(unsigned long i=0;i<linear_length;i++)
-		delete db_linear[i];
+  for(goto_begin();go_forward();) {
+    wipe();
+    delete db_linear[linear_index];
+  }
+
+  /*  for(unsigned long i=0;i<linear_length;i++) {
+    
+    delete db_linear[i];
+    } */
 }
 
 bool CAdPlugDatabase::load(const char *db_name)
@@ -53,18 +62,12 @@ bool CAdPlugDatabase::load(const char *db_name)
 
 bool CAdPlugDatabase::load(istream &f)
 {
-	// read id
 	char id[35];
-
-	f.read(id,35);
-
-	if (memcmp(id,DB_FILEID,35))
-		return false;
-
-	// read length
 	unsigned long length;
 
-	f.read((char *)&length,4);
+	f.read(id,35);
+	if(memcmp(id,DB_FILEID,35)) return false;
+	f.read((char *)&length, sizeof(length));
 
 	// read records
 	for (unsigned long i=0;i<length;i++)
@@ -83,11 +86,8 @@ bool CAdPlugDatabase::save(const char *db_name)
 
 bool CAdPlugDatabase::save(ostream &f)
 {
-	// write id
-	f.write(DB_FILEID,35);
-
-	// write length
-	f.write((char *)&linear_logic_length, 4);
+  f.write(DB_FILEID, 35);
+  f.write((char *)&linear_logic_length, sizeof(linear_logic_length));
 
 	// write records
 	for (unsigned long i=0;i<linear_length;i++)
@@ -174,7 +174,13 @@ bool CAdPlugDatabase::insert(CRecord *record)
 
 void CAdPlugDatabase::wipe(CRecord *record)
 {
-  if (!linear_length || !lookup(record->key)) return;
+  if(!lookup(record->key)) return;
+  wipe();
+}
+
+void CAdPlugDatabase::wipe()
+{
+  if (!linear_length) return;
 
   DB_Bucket *bucket = db_linear[linear_index];
 
@@ -283,10 +289,12 @@ CAdPlugDatabase::CRecord::CRecord()
   : type(Plain), size(sizeof(CRecord)), filetype(CFileType::Undefined)
 {
   memset(key, 0, sizeof(key));
+  puts("created plain record");
 }
 
 CAdPlugDatabase::CRecord::~CRecord()
 {
+  puts("destroyed plain record");
 }
 
 CAdPlugDatabase::CRecord *CAdPlugDatabase::CRecord::read(istream &in)
@@ -295,12 +303,14 @@ CAdPlugDatabase::CRecord *CAdPlugDatabase::CRecord::read(istream &in)
   unsigned long	size;
   CRecord	*rec;
 
-  in >> (unsigned int)type >> size;
+  in.read((char *)&type, sizeof(type));
+  in.read((char *)&size, sizeof(size));
   rec = factory(type);
 
   if(rec) {
     rec->size = size;
-    in >> rec->key >> (unsigned int)rec->filetype;
+    in.read((char *)&rec->key, sizeof(rec->key));
+    in.read((char *)&rec->filetype, sizeof(rec->filetype));
     rec->read_own(in);
     return rec;
   } else {
@@ -312,10 +322,10 @@ CAdPlugDatabase::CRecord *CAdPlugDatabase::CRecord::read(istream &in)
 
 void CAdPlugDatabase::CRecord::write(ostream &out)
 {
-  out << type;
-  out << size;
-  out << key;
-  out << filetype;
+  out.write((char *)&type, sizeof(type));
+  out.write((char *)&size, sizeof(size));
+  out.write(key, sizeof(key));
+  out.write((char *)&filetype, sizeof(filetype));
 
   write_own(out);
 }
@@ -335,6 +345,8 @@ void CInfoRecord::read_own(istream &in)
 
 void CInfoRecord::write_own(ostream &out)
 {
+  out << title;
+  out << author;
 }
 
 /***** CClockRecord *****/
@@ -347,10 +359,10 @@ CClockRecord::CClockRecord()
 
 void CClockRecord::read_own(istream &in)
 {
-  in >> clock;
+  in.read((char *)&clock, sizeof(clock));
 }
 
 void CClockRecord::write_own(ostream &out)
 {
-  out << clock;
+  out.write((char *)&clock, sizeof(clock));
 }

@@ -71,6 +71,7 @@ public:
 	bool    insert(CRecord *record);
 
 	void	wipe(CRecord *record);
+	void	wipe();
 
 	CRecord *search(CRecord::Key key);
 	bool	lookup(CRecord::Key key);

@@ -118,7 +118,7 @@ struct ADSR {
 	// normalised sustain level
 	ulong susLevel;
 
-	ADSR() : attack(false), aRate(0), dRate(0), rRate(0), susLevel(0), bias(0) {
+	ADSR() : aRate(0), dRate(0), rRate(0), susLevel(0), attack(false), bias(0) {
 	}
 
 	void KeyOn() {

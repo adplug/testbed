@@ -58,6 +58,7 @@ bool CAdPlugDatabase::load(binistream &f)
   char *id = new char [idlen];
   unsigned long length;
 
+  f.set_flag(binio::BigEndian, false);
   f.read(id,idlen);
   if(memcmp(id,DB_FILEID,idlen)) {
     delete [] id;

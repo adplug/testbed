@@ -381,15 +381,15 @@ CClockRecord::CClockRecord()
 
 void CClockRecord::read_own(binistream &in)
 {
-  clock = in.readDouble();
+  clock = in.readFloat();
 }
 
 void CClockRecord::write_own(binostream &out)
 {
-  out.writeDouble(clock);
+  out.writeFloat(clock);
 }
 
 unsigned long CClockRecord::get_size()
 {
-  return sizeof(binio::Double);
+  return sizeof(binio::Float);
 }

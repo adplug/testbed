@@ -28,21 +28,39 @@
 class binio
 {
 public:
-  typedef enum { Little, Big } Endian;
+  typedef enum {
+    BigEndian = 1 << 0,
+  } Flag;
+
   typedef enum { Start, Add, End } Offset;
 
-  typedef char		Byte;
-  typedef short		Word;
-  typedef long		DWord;
-  typedef double	Double;
-
-  Endian endian;
+  typedef char		Byte;		// 8 bit
+  typedef short		Word;		// 16 bit
+  typedef long		DWord;		// 32 bit
+  typedef long long	QWord;		// 64 bit
+  typedef float		Float;		// 32 bit
+  typedef double	Double;		// 64 bit
 
   binio();
-
   virtual ~binio();
 
+  void set_flag(Flag f, bool set = true);
+  bool get_flag(Flag f);
+
   virtual void seek(unsigned long, Offset = Start) = 0;
+
+protected:
+  typedef enum { Norm, Swap } Order;
+
+  Order order;
+
+private:
+  typedef unsigned short Flags;
+
+  static Flags	system_flags;
+  Flags		my_flags;
+
+  static Flags detect_system_flags();
 };
 
 class binistream: virtual public binio
@@ -55,6 +73,8 @@ public:
   Byte readByte();
   Word readWord();
   DWord readDWord();
+  QWord readQWord();
+  Float readFloat();
   Double readDouble();
 
   unsigned long readString(char *str, unsigned long maxlen, char delim = '\0');
@@ -79,6 +99,8 @@ public:
   void writeByte(Byte b);
   void writeWord(Word w);
   void writeDWord(DWord dw);
+  void writeQWord(QWord qw);
+  void writeFloat(Float f);
   void writeDouble(Double d);
 
   void writeString(const char *str);

@@ -53,7 +53,7 @@ public:
     typedef enum { Plain, SongInfo, ClockSpeed } RecordType;
 
     RecordType		type;
-    CKey			key;
+    CKey		key;
     CFileType::FileType	filetype;
 
     static CRecord *factory(RecordType type);
@@ -103,9 +103,9 @@ public:
   public:
     unsigned long	index;
     bool		deleted;
-    DB_Bucket	*chain;
+    DB_Bucket		*chain;
 
-    CRecord	*record;
+    CRecord		*record;
 
     DB_Bucket(CRecord *newrecord, DB_Bucket *newchain = 0);
     ~DB_Bucket();

@@ -33,7 +33,7 @@ CAdPlugDatabase	mydb;
 void show_record(CAdPlugDatabase::CRecord *record)
 {
   printf("type: %i\n", record->type);
-  printf("key: ...\n");
+  printf("key: 0x%lX:0x%X\n", record->key.crc32, record->key.crc16);
   printf("FileType: %u\n", record->filetype);
 
   CInfoRecord *inforec = (CInfoRecord *)record;
@@ -80,6 +80,7 @@ int main(int argc, char* argv[])
 	    exit(1);
 	  }
 	  key = CAdPlugDatabase::CKey(f);
+	  printf("file %s key: 0x%lX:0x%X\n", argv[2], key.crc32, key.crc16);
 	}
 
 	mydb.load("adplug.db");

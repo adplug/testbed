@@ -32,13 +32,51 @@
 
 /***** binio *****/
 
+binio::Flags binio::system_flags = binio::detect_system_flags();
+
 binio::binio()
-  : endian(Little)
+  : order(Norm), my_flags(system_flags)
 {
 }
 
 binio::~binio()
 {
+}
+
+binio::Flags binio::detect_system_flags()
+{
+  Flags f = 0;
+  union {
+    Word word;
+    Byte byte;
+  } endian_test;
+
+  // Endian test
+  endian_test.word = 0x0102;
+  switch(endian_test.byte) {
+  case 0x01: f |= BigEndian; break;
+  case 0x02: f &= !BigEndian; break;
+  default: /* Error! Throw exception... */ break;
+  }
+
+  return f;
+}
+
+void binio::set_flag(Flag f, bool set)
+{
+  if(set) my_flags |= f; else my_flags &= !f;
+
+  /*** Evaluate new flag ***/
+  switch(f) {
+  case BigEndian:
+    if(set == system_flags & BigEndian) order = Norm; else order = Swap;
+    break;
+  }
+}
+
+bool binio::get_flag(Flag f)
+{
+  return (my_flags & f);
 }
 
 /***** binistream *****/
@@ -61,9 +99,9 @@ binio::Word binistream::readWord()
   Byte first = getByte(), last = getByte();
   Word final;
 
-  switch(endian) {
-  case Little: final = (Word)((last << 8) + first); break;
-  case Big: final = (Word)((first << 8) + last); break;
+  switch(order) {
+  case Norm: final = ((Word)first << 8) + last; break;
+  case Swap: final = ((Word)last << 8) + first; break;
   }
 
   return final;
@@ -74,19 +112,37 @@ binio::DWord binistream::readDWord()
   Word first = readWord(), last = readWord();
   DWord final;
 
-  switch(endian) {
-  case Little: final = (DWord)((last << 16) + first); break;
-  case Big: final = (DWord)((first << 16) + last); break;
+  switch(order) {
+  case Norm: final = ((DWord)first << 16) + last; break;
+  case Swap: final = ((DWord)last << 16) + first; break;
   }
 
   return final;
 }
 
-binio::Double binistream::readDouble()
+binio::QWord binistream::readQWord()
+{
+  DWord first = readDWord(), last = readDWord();
+  QWord final;
+
+  switch(order) {
+  case Norm: final = ((QWord)first << 32) + last; break;
+  case Swap: final = ((QWord)last << 32) + first; break;
+  }
+
+  return final;
+}
+
+binio::Float binistream::readFloat()
 {
   DWord dw = readDWord();
+  return *(Float *)&dw;
+}
 
-  return *(Double *)&dw;
+binio::Double binistream::readDouble()
+{
+  QWord qw = readQWord();
+  return *(Double *)&qw;
 }
 
 unsigned long binistream::readString(char *str, unsigned long maxlen,
@@ -144,23 +200,36 @@ void binostream::writeByte(Byte b)
 
 void binostream::writeWord(Word w)
 {
-  switch(endian) {
-  case Little: putByte(w & 0xff); putByte(w >> 8); break;
-  case Big: putByte(w >> 8); putByte(w & 0xff); break;
+  switch(order) {
+  case Norm: putByte(w >> 8); putByte(w & 0xff); break;
+  case Swap: putByte(w & 0xff); putByte(w >> 8); break;
   }
 }
 
 void binostream::writeDWord(DWord dw)
 {
-  switch(endian) {
-  case Little: writeWord(dw & 0xffff); writeWord(dw >> 16); break;
-  case Big: writeWord(dw >> 16); writeWord(dw & 0xffff); break;
+  switch(order) {
+  case Norm: writeWord(dw >> 16); writeWord(dw & 0xffff); break;
+  case Swap: writeWord(dw & 0xffff); writeWord(dw >> 16); break;
   }
+}
+
+void binostream::writeQWord(QWord dw)
+{
+  switch(order) {
+  case Norm: writeDWord(dw >> 32); writeDWord(dw & 0xffffffff); break;
+  case Swap: writeDWord(dw & 0xffffffff); writeDWord(dw >> 32); break;
+  }
+}
+
+void binostream::writeFloat(Float f)
+{
+  writeDWord(*(DWord *)&f);
 }
 
 void binostream::writeDouble(Double d)
 {
-  writeDWord(*(DWord *)&d);
+  writeQWord(*(QWord *)&d);
 }
 
 void binostream::writeString(const char *str)

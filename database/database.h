@@ -24,60 +24,60 @@
 #ifndef H_DATABASE
 #define H_DATABASE
 
-#include <iostream.h>
 #include <string>
 
 #include "filetype.h"
+#include "binio.h"
 
 class CAdPlugDatabase
 {
 public:
   class CKey
-    {
-    public:
-      unsigned short crc16;
-      unsigned long crc32;
+  {
+  public:
+    unsigned short crc16;
+    unsigned long crc32;
 
-      CKey() {};
-      CKey(istream &in);
+    CKey() {};
+    CKey(istream &in);
 
-      bool operator==(const CKey &key);
+    bool operator==(const CKey &key);
 
-    private:
-      void make(istream &in);
-    };
+  private:
+    void make(istream &in);
+  };
 
   class CRecord
-    {
-    public:
-      typedef enum { Plain, SongInfo, ClockSpeed } RecordType;
+  {
+  public:
+    typedef enum { Plain, SongInfo, ClockSpeed } RecordType;
 
-      RecordType		type;
-      CKey			key;
-      CFileType::FileType	filetype;
+    RecordType		type;
+    CKey			key;
+    CFileType::FileType	filetype;
 
-      static CRecord *factory(RecordType type);
-      static CRecord *read(istream &in);
+    static CRecord *factory(RecordType type);
+    static CRecord *read(binistream &in);
 
-      CRecord();
-      virtual ~CRecord();
+    CRecord();
+    virtual ~CRecord();
 
-      void write(ostream &out);
+    void write(binostream &out);
 
-    protected:
-      virtual void read_own(istream &in) {}
-      virtual void write_own(ostream &out) {}
-      virtual unsigned long get_size();
-    };
+  protected:
+    virtual void read_own(binistream &in) {}
+    virtual void write_own(binostream &out) {}
+    virtual unsigned long get_size();
+  };
 
   CAdPlugDatabase();
 
   ~CAdPlugDatabase();
 
   bool	load(const char *db_name);
-  bool	load(istream &f);
+  bool	load(binistream &f);
   bool	save(const char *db_name);
-  bool	save(ostream &f);
+  bool	save(binostream &f);
 
   bool    insert(CRecord *record);
 
@@ -87,7 +87,7 @@ public:
   CRecord *search(CKey const &key);
   bool	lookup(CKey const &key);
 
-  CRecord	*get_record();
+  CRecord *get_record();
 
   bool	go_forward();
   bool	go_backward();
@@ -99,22 +99,22 @@ public:
   static const unsigned short hash_radix = 0xfff1;	// should be prime
 
   class DB_Bucket
-    {
-    public:
-      unsigned long	index;
-      bool		deleted;
-      DB_Bucket	*chain;
+  {
+  public:
+    unsigned long	index;
+    bool		deleted;
+    DB_Bucket	*chain;
 
-      CRecord	*record;
+    CRecord	*record;
 
-      DB_Bucket(CRecord *newrecord, DB_Bucket *newchain = 0);
-      ~DB_Bucket();
+    DB_Bucket(CRecord *newrecord, DB_Bucket *newchain = 0);
+    ~DB_Bucket();
 
-      static unsigned long linear_length();
+    static unsigned long linear_length();
 
-    private:
-      static unsigned long mainindex;
-    };
+  private:
+    static unsigned long mainindex;
+  };
 
   DB_Bucket	*db_linear[hash_radix];
   DB_Bucket	*db_hashed[hash_radix];
@@ -126,28 +126,28 @@ public:
 
 class CInfoRecord: public CAdPlugDatabase::CRecord
 {
- public:
+public:
   std::string	title;
   std::string	author;
 
   CInfoRecord();
 
- protected:
-  virtual void read_own(istream &in);
-  virtual void write_own(ostream &out);
+protected:
+  virtual void read_own(binistream &in);
+  virtual void write_own(binostream &out);
   virtual unsigned long get_size();
 };
 
 class CClockRecord: public CAdPlugDatabase::CRecord
 {
- public:
+public:
   float	clock;
 
   CClockRecord();
 
- protected:
-  virtual void read_own(istream &in);
-  virtual void write_own(ostream &out);
+protected:
+  virtual void read_own(binistream &in);
+  virtual void write_own(binostream &out);
   virtual unsigned long get_size();
 };
 

@@ -21,21 +21,22 @@
  * Copyright (c) 2002 Simon Peter <dn.tlp@gmx.net>
  */
 
-#include <iostream.h>
 #include <fstream.h>
 #include <string.h>
 
+#include "binio.h"
+#include "binfile.h"
 #include "database.h"
 
-#define DB_FILEID	"AdPlug Module Information Database\x10"
+#define DB_FILEID	"AdPlug Module Information Database 1.0\x10"
 
 /***** CAdPlugDatabase *****/
 
 CAdPlugDatabase::CAdPlugDatabase()
   : linear_index(0), linear_logic_length(0)
 {
-	memset(db_linear,0,sizeof(DB_Bucket *) * hash_radix);
-	memset(db_hashed,0,sizeof(DB_Bucket *) * hash_radix);
+  memset(db_linear,0,sizeof(DB_Bucket *) * hash_radix);
+  memset(db_hashed,0,sizeof(DB_Bucket *) * hash_radix);
 }
 
 CAdPlugDatabase::~CAdPlugDatabase()
@@ -46,40 +47,43 @@ CAdPlugDatabase::~CAdPlugDatabase()
 
 bool CAdPlugDatabase::load(const char *db_name)
 {
-	ifstream f(db_name, ios::in | ios::binary);
-
-	if (!f.is_open()) return false;
-	return load(f);
+  binifstream f(db_name);
+  if(!f.is_open()) return false;
+  return load(f);
 }
 
-bool CAdPlugDatabase::load(istream &f)
+bool CAdPlugDatabase::load(binistream &f)
 {
-	char id[35];
-	unsigned long length;
+  unsigned int idlen = strlen(DB_FILEID);
+  char *id = new char [idlen];
+  unsigned long length;
 
-	f.read(id,35);
-	if(memcmp(id,DB_FILEID,35)) return false;
-	f.read((char *)&length, sizeof(length));
+  f.read(id,idlen);
+  if(memcmp(id,DB_FILEID,idlen)) {
+    delete [] id;
+    return false;
+  }
+  length = f.readDWord();
 
-	// read records
-	for (unsigned long i=0;i<length;i++)
-	  insert(CRecord::read(f));
+  // read records
+  for (unsigned long i=0;i<length;i++)
+    insert(CRecord::read(f));
 
-	return true;
+  delete [] id;
+  return true;
 }
 
 bool CAdPlugDatabase::save(const char *db_name)
 {
-	ofstream f(db_name, ios::out | ios::trunc | ios::binary);
-
-	if(!f.is_open()) return false;
-	return save(f);
+  binofstream f(db_name);
+  if(!f.is_open()) return false;
+  return save(f);
 }
 
-bool CAdPlugDatabase::save(ostream &f)
+bool CAdPlugDatabase::save(binostream &f)
 {
-  f.write(DB_FILEID, 35);
-  f.write((char *)&linear_logic_length, sizeof(linear_logic_length));
+  f.writeString(DB_FILEID);
+  f.writeDWord(linear_logic_length);
 
   // write records
   for(unsigned long i=0;i<DB_Bucket::linear_length();i++)
@@ -264,38 +268,32 @@ CAdPlugDatabase::CRecord::~CRecord()
 {
 }
 
-CAdPlugDatabase::CRecord *CAdPlugDatabase::CRecord::read(istream &in)
+CAdPlugDatabase::CRecord *CAdPlugDatabase::CRecord::read(binistream &in)
 {
   RecordType	type;
   unsigned long	size;
   CRecord	*rec;
 
-  in.read((char *)&type, sizeof(type));
-  in.read((char *)&size, sizeof(size));
+  type = (RecordType)in.readByte(); size = in.readDWord();
   rec = factory(type);
 
   if(rec) {
-    in.read((char *)&rec->key.crc16, sizeof(rec->key.crc16));
-    in.read((char *)&rec->key.crc32, sizeof(rec->key.crc32));
-    in.read((char *)&rec->filetype, sizeof(rec->filetype));
+    rec->key.crc16 = in.readWord(); rec->key.crc32 = in.readDWord();
+    rec->filetype = (CFileType::FileType)in.readWord();
     rec->read_own(in);
     return rec;
   } else {
     // skip this record, cause we don't know about it
-    in.seekg(size + 6 + sizeof(rec->filetype), ios::cur);
+    in.seek(size + 6 + 2, binio::Add);
     return 0;
   }
 }
 
-void CAdPlugDatabase::CRecord::write(ostream &out)
+void CAdPlugDatabase::CRecord::write(binostream &out)
 {
-  unsigned long size = get_size();
-
-  out.write((char *)&type, sizeof(type));
-  out.write((char *)&size, sizeof(size));
-  out.write((char *)&key.crc16, sizeof(key.crc16));
-  out.write((char *)&key.crc32, sizeof(key.crc32));
-  out.write((char *)&filetype, sizeof(filetype));
+  out.writeByte(type); out.writeDWord(get_size());
+  out.writeWord(key.crc16); out.writeDWord(key.crc32);
+  out.writeWord(filetype);
 
   write_own(out);
 }
@@ -356,16 +354,16 @@ CInfoRecord::CInfoRecord()
   type = SongInfo;
 }
 
-void CInfoRecord::read_own(istream &in)
+void CInfoRecord::read_own(binistream &in)
 {
-  in >> title;
-  in >> author;
+  title = in.readString();
+  author = in.readString();
 }
 
-void CInfoRecord::write_own(ostream &out)
+void CInfoRecord::write_own(binostream &out)
 {
-  out << title << endl;
-  out << author << endl;
+  out.writeString(title); out.writeByte('\0');
+  out.writeString(author); out.writeByte('\0');
 }
 
 unsigned long CInfoRecord::get_size()
@@ -381,17 +379,17 @@ CClockRecord::CClockRecord()
   type = ClockSpeed;
 }
 
-void CClockRecord::read_own(istream &in)
+void CClockRecord::read_own(binistream &in)
 {
-  in.read((char *)&clock, sizeof(clock));
+  clock = in.readDouble();
 }
 
-void CClockRecord::write_own(ostream &out)
+void CClockRecord::write_own(binostream &out)
 {
-  out.write((char *)&clock, sizeof(clock));
+  out.writeDouble(clock);
 }
 
 unsigned long CClockRecord::get_size()
 {
-  return sizeof(clock);
+  return sizeof(binio::Double);
 }

@@ -102,6 +102,7 @@ int main(int argc, char* argv[])
 	    inforec = (CInfoRecord *)record;
 	    cout << "Title: "; cin >> inforec->title;
 	    cout << "Author: "; cin >> inforec->author;
+	    cout << inforec->author << endl;
 	    break;
 	  case CAdPlugDatabase::CRecord::ClockSpeed:
 	    clockrec = (CClockRecord *)record;
